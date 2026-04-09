@@ -40,3 +40,4 @@ const dbPlugin: FastifyPluginAsync = async (fastify) => {
 };
 
 export default fp(dbPlugin, { name: 'db' });
+

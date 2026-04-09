@@ -147,3 +147,4 @@ const ticketsRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default ticketsRoutes;
+

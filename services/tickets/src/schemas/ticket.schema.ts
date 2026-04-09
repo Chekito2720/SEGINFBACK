@@ -288,3 +288,4 @@ export const historialSchema: FastifySchema = {
     404: errorResponse,
   },
 };
+

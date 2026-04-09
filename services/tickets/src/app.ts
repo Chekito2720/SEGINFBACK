@@ -62,3 +62,4 @@ bootstrap().catch((err) => {
   console.error('Error al iniciar el servicio de tickets:', err);
   process.exit(1);
 });
+
