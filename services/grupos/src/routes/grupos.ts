@@ -1,0 +1,188 @@
+import type { FastifyPluginAsync }                       from 'fastify';
+import { GrupoService, type CreateGrupoDTO, type UpdateGrupoDTO } from '../services/grupo.service.js';
+import { ok, fail }                                from '../helpers/response.js';
+import {
+  listGruposSchema, getGrupoSchema, createGrupoSchema, updateGrupoSchema,
+  deleteGrupoSchema, listMiembrosSchema, addMiembroSchema, removeMiembroSchema,
+  getPermisosContextualesSchema, updatePermisosContextualesSchema, misGruposSchema,
+} from '../schemas/grupo.schema.js';
+
+const gruposRoutes: FastifyPluginAsync = async (fastify) => {
+  const svc = new GrupoService(fastify.db);
+
+  // ── Helpers ───────────────────────────────────────────────────────
+  const getUserId   = (req: any): string   => req.headers['x-user-id']      ?? '';
+  const getPermisos = (req: any): string[] => {
+    try   { return JSON.parse(req.headers['x-user-permisos'] ?? '[]'); }
+    catch { return []; }
+  };
+
+  // Verifica permiso de gestión: groups_manage O la combinación clásica
+  const puedeGestionar = (permisos: string[]) =>
+    permisos.includes('groups_manage') ||
+    permisos.includes('groups_add')    ||
+    permisos.includes('groups_edit')   ||
+    permisos.includes('groups_delete');
+
+  // ═══════════════════════════════════════════════════════════════════
+  // GET /grupos/mis-grupos — grupos del usuario autenticado
+  // Sin permiso especial — cualquier usuario autenticado
+  // ═══════════════════════════════════════════════════════════════════
+  fastify.get('/mis-grupos', { schema: misGruposSchema }, async (req: any, reply) => {
+    const data = await svc.misGrupos(getUserId(req));
+    return reply.send(ok(200, 'SxGR', data));
+  });
+
+  // ═══════════════════════════════════════════════════════════════════
+  // GET /grupos — listar todos
+  // ═══════════════════════════════════════════════════════════════════
+  fastify.get('/', { schema: listGruposSchema }, async (req: any, reply) => {
+    const { page = 1, limit = 20 } = req.query as any;
+    const result = await svc.listar(Number(page), Number(limit));
+    return reply.send({
+      statusCode: 200,
+      intOpCode:  'SxGR200',
+      data:       result.items,
+      meta:       { total: result.total, page: result.page, limit: result.limit, pages: result.pages },
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════
+  // GET /grupos/:id
+  // ═══════════════════════════════════════════════════════════════════
+  fastify.get<{ Params: { id: string } }>(
+    '/:id', { schema: getGrupoSchema },
+    async (req, reply) => {
+      const grupo = await svc.obtenerPorId(req.params.id);
+      return reply.send(ok(200, 'SxGR', grupo));
+    },
+  );
+
+  // ═══════════════════════════════════════════════════════════════════
+  // POST /grupos — crear
+  // Requiere groups_manage o groups_add
+  // ═══════════════════════════════════════════════════════════════════
+  fastify.post<{ Body: CreateGrupoDTO }>(
+    '/', { schema: createGrupoSchema },
+    async (req: any, reply) => {
+      const permisos = getPermisos(req);
+      if (!puedeGestionar(permisos)) {
+        return reply.code(403).send(fail(403, 'SxGR', 'Se requiere permiso groups_manage o groups_add', 'Forbidden'));
+      }
+      const grupo = await svc.crear(req.body, getUserId(req));
+      return reply.code(201).send(ok(201, 'SxGR', grupo));
+    },
+  );
+
+  // ═══════════════════════════════════════════════════════════════════
+  // PATCH /grupos/:id — actualizar
+  // ═══════════════════════════════════════════════════════════════════
+  fastify.patch<{ Params: { id: string }; Body: UpdateGrupoDTO }>(
+    '/:id', { schema: updateGrupoSchema },
+    async (req: any, reply) => {
+      const permisos = getPermisos(req);
+      if (!permisos.includes('groups_manage') && !permisos.includes('group_edit') && !permisos.includes('groups_edit')) {
+        return reply.code(403).send(fail(403, 'SxGR', 'Se requiere permiso para editar grupos', 'Forbidden'));
+      }
+      const grupo = await svc.actualizar(req.params.id, req.body);
+      return reply.send(ok(200, 'SxGR', grupo));
+    },
+  );
+
+  // ═══════════════════════════════════════════════════════════════════
+  // DELETE /grupos/:id
+  // ═══════════════════════════════════════════════════════════════════
+  fastify.delete<{ Params: { id: string } }>(
+    '/:id', { schema: deleteGrupoSchema },
+    async (req: any, reply) => {
+      const permisos = getPermisos(req);
+      if (!permisos.includes('groups_manage') && !permisos.includes('group_delete') && !permisos.includes('groups_delete')) {
+        return reply.code(403).send(fail(403, 'SxGR', 'Se requiere permiso para eliminar grupos', 'Forbidden'));
+      }
+      await svc.eliminar(req.params.id);
+      return reply.send(ok(200, 'SxGR', { message: 'Grupo eliminado correctamente' }));
+    },
+  );
+
+  // ═══════════════════════════════════════════════════════════════════
+  // GET /grupos/:id/miembros
+  // ═══════════════════════════════════════════════════════════════════
+  fastify.get<{ Params: { id: string } }>(
+    '/:id/miembros', { schema: listMiembrosSchema },
+    async (req, reply) => {
+      const data = await svc.listarMiembros(req.params.id);
+      return reply.send(ok(200, 'SxGR', data));
+    },
+  );
+
+  // ═══════════════════════════════════════════════════════════════════
+  // POST /grupos/:id/miembros — añadir usuario al grupo
+  // ═══════════════════════════════════════════════════════════════════
+  fastify.post<{ Params: { id: string }; Body: { usuarioId: string } }>(
+    '/:id/miembros', { schema: addMiembroSchema },
+    async (req: any, reply) => {
+      const permisos = getPermisos(req);
+      if (!permisos.includes('groups_manage') && !permisos.includes('group_add')) {
+        return reply.code(403).send(fail(403, 'SxGR', 'Se requiere permiso group_add o groups_manage', 'Forbidden'));
+      }
+      await svc.agregarMiembro(req.params.id, req.body.usuarioId);
+      return reply.code(201).send(ok(201, 'SxGR', { message: 'Usuario añadido al grupo' }));
+    },
+  );
+
+  // ═══════════════════════════════════════════════════════════════════
+  // DELETE /grupos/:id/miembros/:uid — remover usuario del grupo
+  // ═══════════════════════════════════════════════════════════════════
+  fastify.delete<{ Params: { id: string; uid: string } }>(
+    '/:id/miembros/:uid', { schema: removeMiembroSchema },
+    async (req: any, reply) => {
+      const permisos = getPermisos(req);
+      if (!permisos.includes('groups_manage') && !permisos.includes('group_delete')) {
+        return reply.code(403).send(fail(403, 'SxGR', 'Se requiere permiso group_delete o groups_manage', 'Forbidden'));
+      }
+      await svc.removerMiembro(req.params.id, req.params.uid);
+      return reply.send(ok(200, 'SxGR', { message: 'Usuario removido del grupo' }));
+    },
+  );
+
+  // ═══════════════════════════════════════════════════════════════════
+  // GET /grupos/:id/miembros/:uid/permisos
+  // Ver permisos contextuales de un usuario en este grupo
+  // ═══════════════════════════════════════════════════════════════════
+  fastify.get<{ Params: { id: string; uid: string } }>(
+    '/:id/miembros/:uid/permisos', { schema: getPermisosContextualesSchema },
+    async (req, reply) => {
+      const data = await svc.getPermisosContextuales(req.params.id, req.params.uid);
+      return reply.send(ok(200, 'SxGR', data));
+    },
+  );
+
+  // ═══════════════════════════════════════════════════════════════════
+  // PUT /grupos/:id/miembros/:uid/permisos
+  // Reemplazar permisos contextuales de un usuario en este grupo
+  // ─────────────────────────────────────────────────────────────────
+  // CASO DE USO PRINCIPAL:
+  //   Usuario X tiene ticket_view global pero en el Grupo A
+  //   necesita también ticket_add y ticket_state.
+  //   Con este endpoint se asignan sin tocar sus permisos globales.
+  // ═══════════════════════════════════════════════════════════════════
+  fastify.put<{
+    Params: { id: string; uid: string };
+    Body:   { permisos: string[] };
+  }>(
+    '/:id/miembros/:uid/permisos',
+    { schema: updatePermisosContextualesSchema },
+    async (req: any, reply) => {
+      const permisos = getPermisos(req);
+      if (!permisos.includes('groups_manage') && !permisos.includes('group_edit')) {
+        return reply.code(403).send(fail(403, 'SxGR', 'Se requiere permiso groups_manage o group_edit', 'Forbidden'));
+      }
+      const result = await svc.updatePermisosContextuales(
+        req.params.id, req.params.uid, req.body.permisos,
+      );
+      return reply.send(ok(200, 'SxGR', result));
+    },
+  );
+};
+
+export default gruposRoutes;

@@ -97,6 +97,22 @@ async function bootstrap() {
     },
   });
 
+    // ── Proxy → Servicio Grupos (:3003) ────────────────────────────────────────
+  await server.register(proxy, {
+    upstream:      process.env.GRUPOS_URL ?? 'http://localhost:3003',
+    prefix:        '/grupos',
+    rewritePrefix: '/grupos',
+    http2:         false,
+    replyOptions: {
+      rewriteRequestHeaders: (req: any, headers: any) => ({
+        ...headers,
+        'x-user-id':       req.headers['x-user-id']       ?? '',
+        'x-user-permisos': req.headers['x-user-permisos']  ?? '[]',
+        'x-user-email':    req.headers['x-user-email']     ?? '',
+      }),
+    },
+  });
+
   server.get('/health', async () =>
     ok(200, 'SxGW', {
       service: 'gateway',
