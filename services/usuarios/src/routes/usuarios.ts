@@ -139,3 +139,4 @@ const usuariosRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default usuariosRoutes;
+

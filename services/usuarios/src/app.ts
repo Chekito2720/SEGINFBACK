@@ -64,3 +64,4 @@ bootstrap().catch((err) => {
   console.error('Error al iniciar el servicio de usuarios:', err);
   process.exit(1);
 });
+

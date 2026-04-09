@@ -276,3 +276,5 @@ export const deleteUsuarioSchema: FastifySchema = {
     404: errorResponse,
   },
 };
+
+
