@@ -1,0 +1,377 @@
+{
+  "_type": "ThunderCollection",
+  "version": "1.1",
+  "_id": "col-seginf-001",
+  "name": "SEGINF - Usuarios",
+  "description": "Colección de pruebas para el servicio de usuarios (puerto 3001 directo)",
+  "folders": [
+    {
+      "_id": "folder-auth",
+      "name": "Auth (Públicos)",
+      "containerId": "",
+      "created": "2026-01-01T00:00:00.000Z",
+      "modified": "2026-01-01T00:00:00.000Z",
+      "sortNum": 1
+    },
+    {
+      "_id": "folder-usuarios",
+      "name": "Usuarios (Protegidos)",
+      "containerId": "",
+      "created": "2026-01-01T00:00:00.000Z",
+      "modified": "2026-01-01T00:00:00.000Z",
+      "sortNum": 2
+    },
+    {
+      "_id": "folder-errores",
+      "name": "Casos de Error",
+      "containerId": "",
+      "created": "2026-01-01T00:00:00.000Z",
+      "modified": "2026-01-01T00:00:00.000Z",
+      "sortNum": 3
+    }
+  ],
+  "requests": [
+    {
+      "_id": "req-001",
+      "colId": "col-seginf-001",
+      "containerId": "folder-auth",
+      "name": "POST /registro — Éxito",
+      "url": "{{base_url}}/usuarios/registro",
+      "method": "POST",
+      "sortNum": 1,
+      "created": "2026-01-01T00:00:00.000Z",
+      "modified": "2026-01-01T00:00:00.000Z",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"fullName\": \"Sergio Bravo\",\n  \"username\": \"sergio_bravo\",\n  \"email\": \"sergio@email.com\",\n  \"phone\": \"50312345678\",\n  \"birthDate\": \"1995-06-15\",\n  \"address\": \"Calle Ejemplo 123\",\n  \"password\": \"Segura@1234\",\n  \"confirmPassword\": \"Segura@1234\"\n}"
+      },
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "201" },
+        { "type": "res-body", "custom": "data", "action": "isArray", "value": "" },
+        { "type": "res-body", "custom": "data[0].token", "action": "notEmpty", "value": "" },
+        { "type": "res-body", "custom": "data[0].usuario.email", "action": "equal", "value": "sergio@email.com" }
+      ]
+    },
+    {
+      "_id": "req-002",
+      "colId": "col-seginf-001",
+      "containerId": "folder-auth",
+      "name": "POST /login — Éxito",
+      "url": "{{base_url}}/usuarios/login",
+      "method": "POST",
+      "sortNum": 2,
+      "created": "2026-01-01T00:00:00.000Z",
+      "modified": "2026-01-01T00:00:00.000Z",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"email\": \"sergio@email.com\",\n  \"password\": \"Segura@1234\"\n}"
+      },
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "200" },
+        { "type": "res-body", "custom": "data", "action": "isArray", "value": "" },
+        { "type": "res-body", "custom": "data[0].token", "action": "notEmpty", "value": "" },
+        { "type": "set-env-var", "custom": "data[0].token", "action": "setTo", "value": "token" },
+        { "type": "set-env-var", "custom": "data[0].usuario.id", "action": "setTo", "value": "user_id" }
+      ]
+    },
+    {
+      "_id": "req-003",
+      "colId": "col-seginf-001",
+      "containerId": "folder-usuarios",
+      "name": "GET /me — Perfil propio",
+      "url": "{{base_url}}/usuarios/me",
+      "method": "GET",
+      "sortNum": 3,
+      "created": "2026-01-01T00:00:00.000Z",
+      "modified": "2026-01-01T00:00:00.000Z",
+      "headers": [
+        { "name": "X-User-Id", "value": "{{user_id}}" }
+      ],
+      "body": { "type": "none", "raw": "" },
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "200" },
+        { "type": "res-body", "custom": "data", "action": "isArray", "value": "" },
+        { "type": "res-body", "custom": "data[0].email", "action": "notEmpty", "value": "" }
+      ]
+    },
+    {
+      "_id": "req-004",
+      "colId": "col-seginf-001",
+      "containerId": "folder-usuarios",
+      "name": "GET / — Listar usuarios",
+      "url": "{{base_url}}/usuarios?page=1&limit=10",
+      "method": "GET",
+      "sortNum": 4,
+      "created": "2026-01-01T00:00:00.000Z",
+      "modified": "2026-01-01T00:00:00.000Z",
+      "headers": [
+        { "name": "X-User-Id", "value": "{{user_id}}" }
+      ],
+      "params": [
+        { "name": "page", "value": "1" },
+        { "name": "limit", "value": "10" }
+      ],
+      "body": { "type": "none", "raw": "" },
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "200" },
+        { "type": "res-body", "custom": "data", "action": "isArray", "value": "" }
+      ]
+    },
+    {
+      "_id": "req-005",
+      "colId": "col-seginf-001",
+      "containerId": "folder-usuarios",
+      "name": "GET /:id — Perfil por ID",
+      "url": "{{base_url}}/usuarios/{{target_user_id}}",
+      "method": "GET",
+      "sortNum": 5,
+      "created": "2026-01-01T00:00:00.000Z",
+      "modified": "2026-01-01T00:00:00.000Z",
+      "headers": [
+        { "name": "X-User-Id", "value": "{{user_id}}" }
+      ],
+      "body": { "type": "none", "raw": "" },
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "200" },
+        { "type": "res-body", "custom": "data", "action": "isArray", "value": "" },
+        { "type": "res-body", "custom": "data[0].id", "action": "notEmpty", "value": "" }
+      ]
+    },
+    {
+      "_id": "req-006",
+      "colId": "col-seginf-001",
+      "containerId": "folder-usuarios",
+      "name": "PATCH /:id — Actualizar perfil",
+      "url": "{{base_url}}/usuarios/{{user_id}}",
+      "method": "PATCH",
+      "sortNum": 6,
+      "created": "2026-01-01T00:00:00.000Z",
+      "modified": "2026-01-01T00:00:00.000Z",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "X-User-Id", "value": "{{user_id}}" },
+        { "name": "X-User-Permisos", "value": "[]" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"nombre_completo\": \"Sergio Bravo Actualizado\"\n}"
+      },
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "200" },
+        { "type": "res-body", "custom": "data", "action": "isArray", "value": "" },
+        { "type": "res-body", "custom": "data[0].message", "action": "notEmpty", "value": "" }
+      ]
+    },
+    {
+      "_id": "req-007",
+      "colId": "col-seginf-001",
+      "containerId": "folder-usuarios",
+      "name": "PATCH /:id — Cambiar contraseña",
+      "url": "{{base_url}}/usuarios/{{user_id}}",
+      "method": "PATCH",
+      "sortNum": 7,
+      "created": "2026-01-01T00:00:00.000Z",
+      "modified": "2026-01-01T00:00:00.000Z",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "X-User-Id", "value": "{{user_id}}" },
+        { "name": "X-User-Permisos", "value": "[]" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"password_actual\": \"Segura@1234\",\n  \"password_nuevo\": \"NuevaClave@9999\"\n}"
+      },
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "200" }
+      ]
+    },
+    {
+      "_id": "req-008",
+      "colId": "col-seginf-001",
+      "containerId": "folder-usuarios",
+      "name": "PUT /:id/permisos — Actualizar permisos",
+      "url": "{{base_url}}/usuarios/{{target_user_id}}/permisos",
+      "method": "PUT",
+      "sortNum": 8,
+      "created": "2026-01-01T00:00:00.000Z",
+      "modified": "2026-01-01T00:00:00.000Z",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "X-User-Id", "value": "{{user_id}}" },
+        { "name": "X-User-Permisos", "value": "[\"users_edit\"]" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"permisos\": [\"user_edit\"]\n}"
+      },
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "200" },
+        { "type": "res-body", "custom": "data", "action": "isArray", "value": "" }
+      ]
+    },
+    {
+      "_id": "req-009",
+      "colId": "col-seginf-001",
+      "containerId": "folder-usuarios",
+      "name": "DELETE /:id — Eliminar usuario",
+      "url": "{{base_url}}/usuarios/{{target_user_id}}",
+      "method": "DELETE",
+      "sortNum": 9,
+      "created": "2026-01-01T00:00:00.000Z",
+      "modified": "2026-01-01T00:00:00.000Z",
+      "headers": [
+        { "name": "X-User-Id", "value": "{{user_id}}" }
+      ],
+      "body": { "type": "none", "raw": "" },
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "200" },
+        { "type": "res-body", "custom": "data[0].message", "action": "notEmpty", "value": "" }
+      ]
+    },
+    {
+      "_id": "req-010",
+      "colId": "col-seginf-001",
+      "containerId": "folder-errores",
+      "name": "POST /registro — Email duplicado (409)",
+      "url": "{{base_url}}/usuarios/registro",
+      "method": "POST",
+      "sortNum": 10,
+      "created": "2026-01-01T00:00:00.000Z",
+      "modified": "2026-01-01T00:00:00.000Z",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"fullName\": \"Sergio Bravo\",\n  \"username\": \"sergio_bravo2\",\n  \"email\": \"sergio@email.com\",\n  \"phone\": \"50312345678\",\n  \"birthDate\": \"1995-06-15\",\n  \"address\": \"Calle Ejemplo 123\",\n  \"password\": \"Segura@1234\",\n  \"confirmPassword\": \"Segura@1234\"\n}"
+      },
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "409" }
+      ]
+    },
+    {
+      "_id": "req-011",
+      "colId": "col-seginf-001",
+      "containerId": "folder-errores",
+      "name": "POST /registro — Password débil (400)",
+      "url": "{{base_url}}/usuarios/registro",
+      "method": "POST",
+      "sortNum": 11,
+      "created": "2026-01-01T00:00:00.000Z",
+      "modified": "2026-01-01T00:00:00.000Z",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"fullName\": \"Test User\",\n  \"username\": \"test_user99\",\n  \"email\": \"test99@email.com\",\n  \"phone\": \"50399999999\",\n  \"birthDate\": \"1995-01-01\",\n  \"address\": \"Calle Test 1\",\n  \"password\": \"sinSimbolos1\",\n  \"confirmPassword\": \"sinSimbolos1\"\n}"
+      },
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "400" }
+      ]
+    },
+    {
+      "_id": "req-012",
+      "colId": "col-seginf-001",
+      "containerId": "folder-errores",
+      "name": "POST /registro — Menor de edad (400)",
+      "url": "{{base_url}}/usuarios/registro",
+      "method": "POST",
+      "sortNum": 12,
+      "created": "2026-01-01T00:00:00.000Z",
+      "modified": "2026-01-01T00:00:00.000Z",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"fullName\": \"Test Menor\",\n  \"username\": \"menor_test\",\n  \"email\": \"menor@email.com\",\n  \"phone\": \"50388888888\",\n  \"birthDate\": \"2016-01-01\",\n  \"address\": \"Calle Menor 1\",\n  \"password\": \"Segura@1234\",\n  \"confirmPassword\": \"Segura@1234\"\n}"
+      },
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "400" }
+      ]
+    },
+    {
+      "_id": "req-013",
+      "colId": "col-seginf-001",
+      "containerId": "folder-errores",
+      "name": "POST /login — Credenciales incorrectas (401)",
+      "url": "{{base_url}}/usuarios/login",
+      "method": "POST",
+      "sortNum": 13,
+      "created": "2026-01-01T00:00:00.000Z",
+      "modified": "2026-01-01T00:00:00.000Z",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"email\": \"noexiste@email.com\",\n  \"password\": \"Segura@1234\"\n}"
+      },
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "401" }
+      ]
+    },
+    {
+      "_id": "req-014",
+      "colId": "col-seginf-001",
+      "containerId": "folder-errores",
+      "name": "GET /me — Sin X-User-Id (401)",
+      "url": "{{base_url}}/usuarios/me",
+      "method": "GET",
+      "sortNum": 14,
+      "created": "2026-01-01T00:00:00.000Z",
+      "modified": "2026-01-01T00:00:00.000Z",
+      "headers": [],
+      "body": { "type": "none", "raw": "" },
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "401" }
+      ]
+    },
+    {
+      "_id": "req-015",
+      "colId": "col-seginf-001",
+      "containerId": "folder-errores",
+      "name": "GET /:id — ID inexistente (404)",
+      "url": "{{base_url}}/usuarios/00000000-0000-0000-0000-000000000000",
+      "method": "GET",
+      "sortNum": 15,
+      "created": "2026-01-01T00:00:00.000Z",
+      "modified": "2026-01-01T00:00:00.000Z",
+      "headers": [
+        { "name": "X-User-Id", "value": "{{user_id}}" }
+      ],
+      "body": { "type": "none", "raw": "" },
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "404" }
+      ]
+    },
+    {
+      "_id": "req-016",
+      "colId": "col-seginf-001",
+      "containerId": "folder-errores",
+      "name": "POST /registro — Campos faltantes (400)",
+      "url": "{{base_url}}/usuarios/registro",
+      "method": "POST",
+      "sortNum": 16,
+      "created": "2026-01-01T00:00:00.000Z",
+      "modified": "2026-01-01T00:00:00.000Z",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"email\": \"incompleto@email.com\"\n}"
+      },
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "400" }
+      ]
+    }
+  ]
+}

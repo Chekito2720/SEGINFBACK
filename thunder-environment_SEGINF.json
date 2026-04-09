@@ -1,0 +1,13 @@
+{
+  "_type": "env",
+  "version": "2.1",
+  "_id": "env-seginf-001",
+  "name": "SEGINF Local",
+  "data": {
+    "base_url": "http://localhost:3001",
+    "gateway_url": "http://localhost:3000",
+    "token": "",
+    "user_id": "",
+    "target_user_id": ""
+  }
+}
