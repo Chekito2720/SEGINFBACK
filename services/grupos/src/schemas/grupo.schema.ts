@@ -84,7 +84,7 @@ export const getGrupoSchema: FastifySchema = {
     properties: { id: { type: 'string', format: 'uuid' } },
   },
   response: {
-    200: okSingle(grupoObject),
+    200: okWrapper(grupoObject),
     404: errorResponse,
   },
 };
@@ -104,7 +104,7 @@ export const createGrupoSchema: FastifySchema = {
     },
   },
   response: {
-    201: okSingle(grupoObject),
+    201: okWrapper(grupoObject),
     400: errorResponse,
     403: errorResponse,
   },
@@ -129,7 +129,7 @@ export const updateGrupoSchema: FastifySchema = {
     },
   },
   response: {
-    200: okSingle(grupoObject),
+    200: okWrapper(grupoObject),
     400: errorResponse,
     403: errorResponse,
     404: errorResponse,
@@ -143,7 +143,7 @@ export const deleteGrupoSchema: FastifySchema = {
     properties: { id: { type: 'string', format: 'uuid' } },
   },
   response: {
-    200: okSingle({ type: 'object', properties: { message: { type: 'string' } } }),
+    200: okWrapper({ type: 'object', properties: { message: { type: 'string' } } }),
     403: errorResponse,
     404: errorResponse,
   },
@@ -187,7 +187,7 @@ export const addMiembroSchema: FastifySchema = {
     },
   },
   response: {
-    201: okSingle({ type: 'object', properties: { message: { type: 'string' } } }),
+    201: okWrapper({ type: 'object', properties: { message: { type: 'string' } } }),
     400: errorResponse,
     403: errorResponse,
     404: errorResponse,
@@ -206,7 +206,7 @@ export const removeMiembroSchema: FastifySchema = {
     },
   },
   response: {
-    200: okSingle({ type: 'object', properties: { message: { type: 'string' } } }),
+    200: okWrapper({ type: 'object', properties: { message: { type: 'string' } } }),
     403: errorResponse,
     404: errorResponse,
   },
@@ -224,7 +224,7 @@ export const getPermisosContextualesSchema: FastifySchema = {
     },
   },
   response: {
-    200: okSingle({
+    200: okWrapper({
       type: 'object',
       properties: {
         grupoId:       { type: 'string' },
@@ -263,7 +263,7 @@ export const updatePermisosContextualesSchema: FastifySchema = {
     },
   },
   response: {
-    200: okSingle({
+    200: okWrapper({
       type: 'object',
       properties: {
         grupoId:       { type: 'string' },
@@ -285,7 +285,7 @@ export const getPermisosDefaultSchema: FastifySchema = {
     properties: { id: { type: 'string', format: 'uuid' } },
   },
   response: {
-    200: okSingle({
+    200: okWrapper({
       type: 'object',
       properties: {
         grupoId:  { type: 'string' },
@@ -311,7 +311,7 @@ export const updatePermisosDefaultSchema: FastifySchema = {
     },
   },
   response: {
-    200: okSingle({
+    200: okWrapper({
       type: 'object',
       properties: {
         grupoId:  { type: 'string' },

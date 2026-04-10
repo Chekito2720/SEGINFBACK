@@ -55,7 +55,7 @@ const gruposRoutes: FastifyPluginAsync = async (fastify) => {
     '/:id', { schema: getGrupoSchema },
     async (req, reply) => {
       const grupo = await svc.obtenerPorId(req.params.id);
-      return reply.send(ok(200, 'SxGR', grupo));
+      return reply.send(ok(200, 'SxGR', [grupo]));
     },
   );
 
@@ -71,7 +71,7 @@ const gruposRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(403).send(fail(403, 'SxGR', 'Se requiere permiso groups_manage o groups_add', 'Forbidden'));
       }
       const grupo = await svc.crear(req.body, getUserId(req));
-      return reply.code(201).send(ok(201, 'SxGR', grupo));
+      return reply.code(201).send(ok(201, 'SxGR', [grupo]));
     },
   );
 
@@ -86,7 +86,7 @@ const gruposRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(403).send(fail(403, 'SxGR', 'Se requiere permiso para editar grupos', 'Forbidden'));
       }
       const grupo = await svc.actualizar(req.params.id, req.body);
-      return reply.send(ok(200, 'SxGR', grupo));
+      return reply.send(ok(200, 'SxGR', [grupo]));
     },
   );
 
@@ -101,7 +101,7 @@ const gruposRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(403).send(fail(403, 'SxGR', 'Se requiere permiso para eliminar grupos', 'Forbidden'));
       }
       await svc.eliminar(req.params.id);
-      return reply.send(ok(200, 'SxGR', { message: 'Grupo eliminado correctamente' }));
+      return reply.send(ok(200, 'SxGR', [{ message: 'Grupo eliminado correctamente' }]));
     },
   );
 
@@ -127,7 +127,7 @@ const gruposRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(403).send(fail(403, 'SxGR', 'Se requiere permiso group_add o groups_manage', 'Forbidden'));
       }
       await svc.agregarMiembro(req.params.id, req.body.usuarioId);
-      return reply.code(201).send(ok(201, 'SxGR', { message: 'Usuario añadido al grupo' }));
+      return reply.code(201).send(ok(201, 'SxGR', [{ message: 'Usuario añadido al grupo' }]));
     },
   );
 
@@ -142,7 +142,7 @@ const gruposRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(403).send(fail(403, 'SxGR', 'Se requiere permiso group_delete o groups_manage', 'Forbidden'));
       }
       await svc.removerMiembro(req.params.id, req.params.uid);
-      return reply.send(ok(200, 'SxGR', { message: 'Usuario removido del grupo' }));
+      return reply.send(ok(200, 'SxGR', [{ message: 'Usuario removido del grupo' }]));
     },
   );
 
@@ -154,7 +154,7 @@ const gruposRoutes: FastifyPluginAsync = async (fastify) => {
     '/:id/miembros/:uid/permisos', { schema: getPermisosContextualesSchema },
     async (req, reply) => {
       const data = await svc.getPermisosContextuales(req.params.id, req.params.uid);
-      return reply.send(ok(200, 'SxGR', data));
+      return reply.send(ok(200, 'SxGR', [data]));
     },
   );
 
@@ -181,7 +181,7 @@ const gruposRoutes: FastifyPluginAsync = async (fastify) => {
       const result = await svc.updatePermisosContextuales(
         req.params.id, req.params.uid, req.body.permisos,
       );
-      return reply.send(ok(200, 'SxGR', result));
+      return reply.send(ok(200, 'SxGR', [result]));
     },
   );
 
@@ -192,7 +192,7 @@ const gruposRoutes: FastifyPluginAsync = async (fastify) => {
     '/:id/permisos-default', { schema: getPermisosDefaultSchema },
     async (req, reply) => {
       const permisos = await svc.getPermisosDefault(req.params.id);
-      return reply.send(ok(200, 'SxGR', { grupoId: req.params.id, permisos }));
+      return reply.send(ok(200, 'SxGR', [{ grupoId: req.params.id, permisos }]));
     },
   );
 
@@ -207,7 +207,7 @@ const gruposRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(403).send(fail(403, 'SxGR', 'Se requiere permiso para editar permisos del grupo', 'Forbidden'));
       }
       const permisos = await svc.updatePermisosDefault(req.params.id, req.body.permisos);
-      return reply.send(ok(200, 'SxGR', { grupoId: req.params.id, permisos, message: 'Permisos base actualizados' }));
+      return reply.send(ok(200, 'SxGR', [{ grupoId: req.params.id, permisos, message: 'Permisos base actualizados' }]));
     },
   );
 };

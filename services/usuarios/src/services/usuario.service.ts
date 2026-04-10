@@ -71,7 +71,7 @@ export class UsuarioService {
     // 5. Asignar permisos básicos de lectura al nuevo usuario
     const PERMISOS_BASICOS = [
       'groups_view', 'group_view',
-      'users_view',  'user_view',
+      'tickets_state',  'user_view',
       'tickets_view','ticket_view',
     ];
 

@@ -61,6 +61,9 @@ const permissionCheckerPlugin: FastifyPluginAsync = async (fastify) => {
     req.headers['x-user-id']       = payload.sub;
     req.headers['x-user-permisos'] = JSON.stringify(payload.permisos ?? []);
     req.headers['x-user-email']    = payload.email;
+    // Propagar el grupo activo enviado por el frontend
+    const groupIdHeader = req.headers['x-group-id'] as string | undefined;
+    if (groupIdHeader) req.headers['x-group-id'] = groupIdHeader;
 
     // ── 4. Rutas que solo necesitan autenticación ────────────────────
     const soloAuth = AUTH_ONLY_ROUTES.some((r: string) => url.startsWith(r));
@@ -75,9 +78,35 @@ const permissionCheckerPlugin: FastifyPluginAsync = async (fastify) => {
     // (el microservicio tiene su propia validación interna)
     if (!ruleEntry) return;
 
-    // ── 6. Verificar que el JWT contiene el permiso ──────────────────
-    const permisos: string[] = payload.permisos ?? [];
-    const tienePermiso = permisos.includes(ruleEntry.permiso);
+    // ── 6. Verificar permiso — global primero, contextual como fallback ─
+    const globalPermisos: string[] = payload.permisos ?? [];
+    let tienePermiso = globalPermisos.includes(ruleEntry.permiso);
+
+    // Fallback: si el JWT no contiene el permiso, comprobar permisos
+    // contextuales del grupo activo (x-group-id enviado por el frontend)
+    if (!tienePermiso) {
+      const groupId = req.headers['x-group-id'] as string | undefined;
+      const userId  = payload.sub as string;
+
+      if (groupId && userId) {
+        try {
+          const gruposUrl = process.env.GRUPOS_URL ?? 'http://localhost:3003';
+          const r = await fetch(
+            `${gruposUrl}/grupos/${groupId}/miembros/${userId}/permisos`,
+          );
+          if (r.ok) {
+            const body     = await r.json() as any;
+            const ctxPerms: string[] = body?.data?.[0]?.permisosGrupo ?? [];
+            if (ctxPerms.includes(ruleEntry.permiso)) {
+              tienePermiso = true;
+              // Fusionar permisos para que el microservicio los vea completos
+              const merged = [...new Set([...globalPermisos, ...ctxPerms])];
+              req.headers['x-user-permisos'] = JSON.stringify(merged);
+            }
+          }
+        } catch { /* si el servicio de grupos no responde, negar acceso */ }
+      }
+    }
 
     if (!tienePermiso) {
       fastify.log.warn({

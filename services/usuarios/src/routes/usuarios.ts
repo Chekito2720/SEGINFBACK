@@ -87,7 +87,12 @@ const usuariosRoutes: FastifyPluginAsync = async (fastify) => {
   }, async (req: any, reply) => {
     const { page = 1, limit = 20 } = req.query as any;
     const result = await svc.listar(page, limit);
-    return reply.send(ok(200, 'SxUS', result));
+    return reply.send({
+      statusCode: 200,
+      intOpCode:  'SxUS200',
+      data:       result.data,
+      meta:       { total: result.total, page: result.page, limit: result.limit, pages: result.pages },
+    });
   });
 
   /** GET /usuarios/:id */

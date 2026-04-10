@@ -32,7 +32,7 @@ async function bootstrap() {
   await server.register(cors, {
     origin:          process.env.FRONTEND_URL ?? 'http://localhost:4200',
     methods:         ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders:  ['Content-Type', 'Authorization'],
+    allowedHeaders:  ['Content-Type', 'Authorization', 'x-group-id'],
     credentials:     true,   // necesario para que el browser envíe cookies
   });
 
