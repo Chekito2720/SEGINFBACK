@@ -10,6 +10,16 @@ const okWrapper = (items: object) => ({
   },
 });
 
+// Para endpoints que devuelven un único objeto (no array)
+const okSingle = (item: object) => ({
+  type: 'object',
+  properties: {
+    statusCode: { type: 'number' },
+    intOpCode:  { type: 'string' },
+    data:       item,
+  },
+});
+
 export const errorResponse = {
   type: 'object',
   properties: {
@@ -74,7 +84,7 @@ export const getGrupoSchema: FastifySchema = {
     properties: { id: { type: 'string', format: 'uuid' } },
   },
   response: {
-    200: okWrapper(grupoObject),
+    200: okSingle(grupoObject),
     404: errorResponse,
   },
 };
@@ -94,7 +104,7 @@ export const createGrupoSchema: FastifySchema = {
     },
   },
   response: {
-    201: okWrapper(grupoObject),
+    201: okSingle(grupoObject),
     400: errorResponse,
     403: errorResponse,
   },
@@ -119,7 +129,7 @@ export const updateGrupoSchema: FastifySchema = {
     },
   },
   response: {
-    200: okWrapper(grupoObject),
+    200: okSingle(grupoObject),
     400: errorResponse,
     403: errorResponse,
     404: errorResponse,
@@ -133,7 +143,7 @@ export const deleteGrupoSchema: FastifySchema = {
     properties: { id: { type: 'string', format: 'uuid' } },
   },
   response: {
-    200: okWrapper({ type: 'object', properties: { message: { type: 'string' } } }),
+    200: okSingle({ type: 'object', properties: { message: { type: 'string' } } }),
     403: errorResponse,
     404: errorResponse,
   },
@@ -153,9 +163,9 @@ export const listMiembrosSchema: FastifySchema = {
         fullName:     { type: 'string' },
         username:     { type: 'string' },
         email:        { type: 'string' },
-        fechaUnido:   { type: 'string' },
-        // Permisos contextuales de este usuario en este grupo
-        permisosGrupo: { type: 'array', items: { type: 'string' } },
+        fechaUnido:      { type: 'string' },
+        permisosGlobales: { type: 'array', items: { type: 'string' } },
+        permisosGrupo:    { type: 'array', items: { type: 'string' } },
       },
     }),
     404: errorResponse,
@@ -173,11 +183,11 @@ export const addMiembroSchema: FastifySchema = {
     required: ['usuarioId'],
     additionalProperties: false,
     properties: {
-      usuarioId: { type: 'string', format: 'uuid' },
+      usuarioId: { type: 'string', minLength: 1 },
     },
   },
   response: {
-    201: okWrapper({ type: 'object', properties: { message: { type: 'string' } } }),
+    201: okSingle({ type: 'object', properties: { message: { type: 'string' } } }),
     400: errorResponse,
     403: errorResponse,
     404: errorResponse,
@@ -196,7 +206,7 @@ export const removeMiembroSchema: FastifySchema = {
     },
   },
   response: {
-    200: okWrapper({ type: 'object', properties: { message: { type: 'string' } } }),
+    200: okSingle({ type: 'object', properties: { message: { type: 'string' } } }),
     403: errorResponse,
     404: errorResponse,
   },
@@ -214,7 +224,7 @@ export const getPermisosContextualesSchema: FastifySchema = {
     },
   },
   response: {
-    200: okWrapper({
+    200: okSingle({
       type: 'object',
       properties: {
         grupoId:       { type: 'string' },
@@ -253,13 +263,60 @@ export const updatePermisosContextualesSchema: FastifySchema = {
     },
   },
   response: {
-    200: okWrapper({
+    200: okSingle({
       type: 'object',
       properties: {
         grupoId:       { type: 'string' },
         usuarioId:     { type: 'string' },
         permisosGrupo: { type: 'array', items: { type: 'string' } },
         message:       { type: 'string' },
+      },
+    }),
+    400: errorResponse,
+    403: errorResponse,
+    404: errorResponse,
+  },
+};
+
+// ─── GET /grupos/:id/permisos-default ────────────────────────────────────────
+export const getPermisosDefaultSchema: FastifySchema = {
+  params: {
+    type: 'object', required: ['id'],
+    properties: { id: { type: 'string', format: 'uuid' } },
+  },
+  response: {
+    200: okSingle({
+      type: 'object',
+      properties: {
+        grupoId:  { type: 'string' },
+        permisos: { type: 'array', items: { type: 'string' } },
+      },
+    }),
+    404: errorResponse,
+  },
+};
+
+// ─── PUT /grupos/:id/permisos-default ────────────────────────────────────────
+export const updatePermisosDefaultSchema: FastifySchema = {
+  params: {
+    type: 'object', required: ['id'],
+    properties: { id: { type: 'string', format: 'uuid' } },
+  },
+  body: {
+    type: 'object',
+    required: ['permisos'],
+    additionalProperties: false,
+    properties: {
+      permisos: { type: 'array', items: { type: 'string' }, uniqueItems: true },
+    },
+  },
+  response: {
+    200: okSingle({
+      type: 'object',
+      properties: {
+        grupoId:  { type: 'string' },
+        permisos: { type: 'array', items: { type: 'string' } },
+        message:  { type: 'string' },
       },
     }),
     400: errorResponse,

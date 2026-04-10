@@ -18,9 +18,7 @@ const server = Fastify({
 
 async function bootstrap() {
 
-  await server.register(cors, {
-    origin: process.env.GATEWAY_URL ?? 'http://localhost:3000',
-  });
+  await server.register(cors, { origin: true });
 
   await server.register(fjwt, {
     secret: process.env.JWT_SECRET ?? 'dev_secret_change_in_production',

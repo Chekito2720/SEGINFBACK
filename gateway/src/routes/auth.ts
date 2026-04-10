@@ -142,15 +142,30 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         path:     '/',
       });
 
+      // Obtener grupos del usuario
+      let groups: unknown[] = [];
+      try {
+        const gruposUrl = `${process.env.GRUPOS_URL ?? 'http://localhost:3003'}/grupos/mis-grupos`;
+        const gruposRes = await fetch(gruposUrl, {
+          headers: { 'x-user-id': usuario.id, 'x-user-permisos': JSON.stringify(usuario.permisos ?? []) },
+        });
+        if (gruposRes.ok) {
+          const gruposData: any = await gruposRes.json();
+          groups = gruposData.data ?? [];
+        }
+      } catch { /* no bloquear el login si grupos falla */ }
+
       return reply.send(
         ok(200, 'SxUS', {
-          usuario: {
-            id:       usuario.id,
-            fullName: usuario.fullName,
-            username: usuario.username,
-            email:    usuario.email,
-            permisos: usuario.permisos,
+          token,
+          user: {
+            id:          usuario.id,
+            fullName:    usuario.nombre_completo ?? usuario.fullName ?? '',
+            username:    usuario.username,
+            email:       usuario.email,
+            permissions: usuario.permisos ?? [],
           },
+          groups,
         }),
       );
 

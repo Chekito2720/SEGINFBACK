@@ -195,14 +195,21 @@ export class GrupoService {
          u.email,
          gm.fecha_unido          AS "fechaUnido",
          COALESCE(
-           json_agg(p.nombre) FILTER (WHERE p.nombre IS NOT NULL),
+           json_agg(DISTINCT pg.nombre) FILTER (WHERE pg.nombre IS NOT NULL),
+           '[]'
+         ) AS "permisosGlobales",
+         COALESCE(
+           json_agg(DISTINCT pc.nombre) FILTER (WHERE pc.nombre IS NOT NULL),
            '[]'
          ) AS "permisosGrupo"
        FROM grupo_miembros gm
        JOIN usuarios u   ON u.id  = gm.usuario_id
+       LEFT JOIN usuario_permisos up
+         ON up.usuario_id = u.id
+       LEFT JOIN permisos pg ON pg.id = up.permiso_id
        LEFT JOIN grupo_usuario_permisos gup
          ON gup.grupo_id = gm.grupo_id AND gup.usuario_id = gm.usuario_id
-       LEFT JOIN permisos p ON p.id = gup.permiso_id
+       LEFT JOIN permisos pc ON pc.id = gup.permiso_id
        WHERE gm.grupo_id = $1
        GROUP BY u.id, gm.fecha_unido
        ORDER BY gm.fecha_unido ASC`,
@@ -218,16 +225,22 @@ export class GrupoService {
   async agregarMiembro(grupoId: string, usuarioId: string) {
     await this.obtenerPorId(grupoId);
 
-    // Verificar que el usuario existe
-    const user = await this.db.query('SELECT id FROM usuarios WHERE id = $1', [usuarioId]);
+    // Verificar que el usuario existe (acepta UUID o email)
+    // Usamos id::text para evitar error de cast cuando $1 es un email
+    const user = await this.db.query(
+      'SELECT id FROM usuarios WHERE email = lower($1) OR id::text = $1',
+      [usuarioId],
+    );
     if (!user.rows[0]) {
       throw Object.assign(new Error('Usuario no encontrado'), { statusCode: 404 });
     }
+    // Normalizar al UUID real del usuario
+    const resolvedId: string = user.rows[0].id;
 
     // Verificar que no sea ya miembro
     const existe = await this.db.query(
       'SELECT 1 FROM grupo_miembros WHERE grupo_id=$1 AND usuario_id=$2',
-      [grupoId, usuarioId],
+      [grupoId, resolvedId],
     );
     if (existe.rows[0]) {
       throw Object.assign(new Error('El usuario ya es miembro de este grupo'), { statusCode: 409 });
@@ -235,7 +248,7 @@ export class GrupoService {
 
     await this.db.query(
       'INSERT INTO grupo_miembros (grupo_id, usuario_id) VALUES ($1,$2)',
-      [grupoId, usuarioId],
+      [grupoId, resolvedId],
     );
   }
 
@@ -374,6 +387,33 @@ export class GrupoService {
       permisosGrupo: permisos,
       message: 'Permisos contextuales actualizados correctamente',
     };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // PERMISOS DEFAULT DEL GRUPO
+  // ═══════════════════════════════════════════════════════════════════
+  async getPermisosDefault(grupoId: string): Promise<string[]> {
+    await this.obtenerPorId(grupoId);
+    await this.db.query(`
+      ALTER TABLE grupos ADD COLUMN IF NOT EXISTS permisos_default JSONB DEFAULT '[]'
+    `);
+    const result = await this.db.query(
+      `SELECT COALESCE(permisos_default, '[]') AS permisos_default FROM grupos WHERE id = $1`,
+      [grupoId],
+    );
+    return result.rows[0]?.permisos_default ?? [];
+  }
+
+  async updatePermisosDefault(grupoId: string, permisos: string[]): Promise<string[]> {
+    await this.obtenerPorId(grupoId);
+    await this.db.query(`
+      ALTER TABLE grupos ADD COLUMN IF NOT EXISTS permisos_default JSONB DEFAULT '[]'
+    `);
+    await this.db.query(
+      `UPDATE grupos SET permisos_default = $1 WHERE id = $2`,
+      [JSON.stringify(permisos), grupoId],
+    );
+    return permisos;
   }
 
   // ═══════════════════════════════════════════════════════════════════

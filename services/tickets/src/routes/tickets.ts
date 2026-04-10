@@ -91,11 +91,11 @@ const ticketsRoutes: FastifyPluginAsync = async (fastify) => {
   // El gateway ya verificó que el usuario tiene ticket_state.
   // El service verifica que el ticket esté asignado al usuario.
   // ═══════════════════════════════════════════════════════════════════
-  fastify.patch<{ Params: { id: string }; Body: { estadoId: string } }>(
+  fastify.patch<{ Params: { id: string }; Body: { estado: string } }>(
     '/:id/state',
     { schema: updateStateSchema },
     async (req: any, reply) => {
-      const ticket = await svc.cambiarEstado(req.params.id, req.body.estadoId, getUserId(req));
+      const ticket = await svc.cambiarEstado(req.params.id, req.body.estado, getUserId(req));
       return reply.send(ok(200, 'SxTK', [ticket]));
     },
   );

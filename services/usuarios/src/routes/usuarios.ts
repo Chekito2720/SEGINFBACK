@@ -30,10 +30,11 @@ const usuariosRoutes: FastifyPluginAsync = async (fastify) => {
     async (req, reply) => {
       const usuario = await svc.registrar(req.body);
       const token = fastify.jwt.sign({
-        sub:      usuario.id,
-        username: usuario.username,
-        email:    usuario.email,
-        permisos: [],
+        sub:            usuario.id,
+        username:       usuario.username,
+        email:          usuario.email,
+        nombre_completo: usuario.nombre_completo,
+        permisos:       [],
       }, { expiresIn: '8h' });
 
       return reply.code(201).send(ok(201, 'SxUS', [{ token, usuario }]));
@@ -47,10 +48,11 @@ const usuariosRoutes: FastifyPluginAsync = async (fastify) => {
     async (req, reply) => {
       const usuario = await svc.login(req.body.email, req.body.password);
       const token = fastify.jwt.sign({
-        sub:      usuario.id,
-        username: usuario.username,
-        email:    usuario.email,
-        permisos: usuario.permisos,
+        sub:             usuario.id,
+        username:        usuario.username,
+        email:           usuario.email,
+        nombre_completo: usuario.nombre_completo,
+        permisos:        usuario.permisos,
       }, { expiresIn: '8h' });
 
       // El gateway es quien pone la cookie; el servicio solo devuelve token+usuario

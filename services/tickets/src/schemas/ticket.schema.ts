@@ -25,20 +25,20 @@ export const errorResponse = {
 const ticketObject = {
   type: 'object',
   properties: {
-    id:          { type: 'string' },
-    grupoId:     { type: 'string' },
-    titulo:      { type: 'string' },
-    descripcion: { type: 'string', nullable: true },
-    autorId:     { type: 'string' },
-    autorNombre: { type: 'string' },
-    asignadoId:  { type: 'string', nullable: true },
+    id:             { type: 'string' },
+    grupoId:        { type: 'string' },
+    titulo:         { type: 'string' },
+    descripcion:    { type: 'string', nullable: true },
+    autorId:        { type: 'string' },
+    autorNombre:    { type: 'string' },
+    asignadoId:     { type: 'string', nullable: true },
     asignadoNombre: { type: 'string', nullable: true },
-    estado:      { type: 'string' },
-    estadoColor: { type: 'string' },
-    prioridad:   { type: 'string' },
+    estado:         { type: 'string' },
+    estadoColor:    { type: 'string' },
+    prioridad:      { type: 'string' },
     prioridadOrden: { type: 'number' },
-    fechaFinal:  { type: 'string', nullable: true },
-    creadoEn:    { type: 'string' },
+    fechaFinal:     { type: 'string', nullable: true },
+    creadoEn:       { type: 'string' },
   },
 };
 
@@ -91,19 +91,20 @@ export const getTicketSchema: FastifySchema = {
 };
 
 // ─── POST /tickets ────────────────────────────────────────────────────────────
+// Acepta nombres de estado y prioridad (el servicio resuelve los UUIDs)
 export const createTicketSchema: FastifySchema = {
   body: {
     type: 'object',
-    required: ['grupoId', 'titulo', 'estadoId', 'prioridadId'],
+    required: ['grupoId', 'titulo', 'estado', 'prioridad'],
     additionalProperties: false,
     properties: {
-      grupoId:      { type: 'string', format: 'uuid' },
-      titulo:       { type: 'string', minLength: 1, maxLength: 500 },
-      descripcion:  { type: 'string', maxLength: 5000, nullable: true },
-      asignadoId:   { type: 'string', format: 'uuid', nullable: true },
-      estadoId:     { type: 'string', format: 'uuid' },
-      prioridadId:  { type: 'string', format: 'uuid' },
-      fechaFinal:   { type: 'string', format: 'date-time', nullable: true },
+      grupoId:     { type: 'string', format: 'uuid' },
+      titulo:      { type: 'string', minLength: 1, maxLength: 500 },
+      descripcion: { type: 'string', maxLength: 5000, nullable: true },
+      asignadoId:  { type: 'string', format: 'uuid', nullable: true },
+      estado:      { type: 'string', enum: ['pendiente', 'en_progreso', 'hecho', 'bloqueado'] },
+      prioridad:   { type: 'string', enum: ['baja', 'media', 'alta', 'critica'] },
+      fechaFinal:  { type: 'string', format: 'date-time', nullable: true },
     },
   },
   response: {
@@ -114,6 +115,7 @@ export const createTicketSchema: FastifySchema = {
 };
 
 // ─── PATCH /tickets/:id ───────────────────────────────────────────────────────
+// Acepta nombre de prioridad (el servicio resuelve el UUID)
 export const updateTicketSchema: FastifySchema = {
   params: {
     type: 'object',
@@ -128,7 +130,7 @@ export const updateTicketSchema: FastifySchema = {
       titulo:      { type: 'string', minLength: 1, maxLength: 500 },
       descripcion: { type: 'string', maxLength: 5000, nullable: true },
       asignadoId:  { type: 'string', format: 'uuid', nullable: true },
-      prioridadId: { type: 'string', format: 'uuid' },
+      prioridad:   { type: 'string', enum: ['baja', 'media', 'alta', 'critica'] },
       fechaFinal:  { type: 'string', format: 'date-time', nullable: true },
     },
   },
@@ -141,8 +143,7 @@ export const updateTicketSchema: FastifySchema = {
 };
 
 // ─── PATCH /tickets/:id/state ─────────────────────────────────────────────────
-// Permiso requerido: ticket_state
-// Regla: solo si el ticket está asignado al usuario que hace la petición
+// Acepta nombre del estado; el servicio verifica que el ticket esté asignado al usuario
 export const updateStateSchema: FastifySchema = {
   params: {
     type: 'object',
@@ -151,10 +152,10 @@ export const updateStateSchema: FastifySchema = {
   },
   body: {
     type: 'object',
-    required: ['estadoId'],
+    required: ['estado'],
     additionalProperties: false,
     properties: {
-      estadoId: { type: 'string', format: 'uuid' },
+      estado: { type: 'string', enum: ['pendiente', 'en_progreso', 'hecho', 'bloqueado'] },
     },
   },
   response: {
@@ -199,10 +200,10 @@ export const statsSchema: FastifySchema = {
         kanban: { type: 'array', items: {
           type: 'object',
           properties: {
-            estadoId:    { type: 'string' },
-            estadoNombre:{ type: 'string' },
-            estadoColor: { type: 'string' },
-            tickets:     { type: 'array', items: ticketObject },
+            estadoId:     { type: 'string' },
+            estadoNombre: { type: 'string' },
+            estadoColor:  { type: 'string' },
+            tickets:      { type: 'array', items: ticketObject },
           },
         }},
       },
@@ -253,9 +254,9 @@ export const createComentarioSchema: FastifySchema = {
     201: okWrapper({
       type: 'object',
       properties: {
-        id:       { type: 'string' },
-        contenido:{ type: 'string' },
-        creadoEn: { type: 'string' },
+        id:        { type: 'string' },
+        contenido: { type: 'string' },
+        creadoEn:  { type: 'string' },
       },
     }),
     403: errorResponse,
@@ -288,4 +289,3 @@ export const historialSchema: FastifySchema = {
     404: errorResponse,
   },
 };
-

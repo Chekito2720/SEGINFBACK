@@ -30,6 +30,8 @@ export const PERMISSION_MAP: Record<string, RoutePermission> = {
   'DELETE /grupos/:id/miembros/:uid':              { permiso: 'group_delete'  },
   'GET /grupos/:id/miembros/:uid/permisos':        { permiso: 'group_view'    },
   'PUT /grupos/:id/miembros/:uid/permisos':        { permiso: 'groups_manage' },
+  'GET /grupos/:id/permisos-default':              { permiso: 'group_view'    },
+  'PUT /grupos/:id/permisos-default':              { permiso: 'group_edit'    },
 
   // ── Tickets — CRUD ────────────────────────────────────────────────
   'GET /tickets':                     { permiso: 'tickets_view'  },

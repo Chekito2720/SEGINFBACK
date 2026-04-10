@@ -68,6 +68,30 @@ export class UsuarioService {
       ],
     );
 
+    // 5. Asignar permisos básicos de lectura al nuevo usuario
+    const PERMISOS_BASICOS = [
+      'groups_view', 'group_view',
+      'users_view',  'user_view',
+      'tickets_view','ticket_view',
+    ];
+
+    const permisosResult = await this.db.query(
+      `SELECT id FROM permisos WHERE nombre = ANY($1)`,
+      [PERMISOS_BASICOS],
+    );
+
+    if (permisosResult.rows.length > 0) {
+      const values = permisosResult.rows
+        .map((_, i) => `($1, $${i + 2})`)
+        .join(', ');
+      await this.db.query(
+        `INSERT INTO usuario_permisos (usuario_id, permiso_id)
+         VALUES ${values}
+         ON CONFLICT DO NOTHING`,
+        [result.rows[0].id, ...permisosResult.rows.map((p: { id: string }) => p.id)],
+      );
+    }
+
     return result.rows[0];
   }
 
@@ -112,6 +136,33 @@ export class UsuarioService {
       [usuario.id],
     );
 
+    // Si el usuario no tiene permisos, asignar los permisos básicos de lectura
+    if (usuario.permisos.length === 0) {
+      const PERMISOS_BASICOS = [
+        'groups_view', 'group_view',
+        'users_view',  'user_view',
+        'tickets_view','ticket_view',
+      ];
+
+      const permisosResult = await this.db.query(
+        `SELECT id, nombre FROM permisos WHERE nombre = ANY($1)`,
+        [PERMISOS_BASICOS],
+      );
+
+      if (permisosResult.rows.length > 0) {
+        const values = permisosResult.rows
+          .map((_, i) => `($1, $${i + 2})`)
+          .join(', ');
+        await this.db.query(
+          `INSERT INTO usuario_permisos (usuario_id, permiso_id)
+           VALUES ${values}
+           ON CONFLICT DO NOTHING`,
+          [usuario.id, ...permisosResult.rows.map(p => p.id)],
+        );
+        usuario.permisos = permisosResult.rows.map(p => p.nombre);
+      }
+    }
+
     // No devolver el hash
     const { password_hash, ...usuarioSinHash } = usuario;
     return usuarioSinHash;
@@ -126,12 +177,17 @@ export class UsuarioService {
               u.telefono, u.direccion, u.fecha_nacimiento,
               u.last_login, u.creado_en,
               COALESCE(
-                json_agg(p.nombre) FILTER (WHERE p.nombre IS NOT NULL),
+                json_agg(DISTINCT p.nombre) FILTER (WHERE p.nombre IS NOT NULL),
                 '[]'
-              ) AS permisos
+              ) AS permisos,
+              COALESCE(
+                json_agg(DISTINCT gm.grupo_id::text) FILTER (WHERE gm.grupo_id IS NOT NULL),
+                '[]'
+              ) AS grupo_ids
        FROM usuarios u
        LEFT JOIN usuario_permisos up ON up.usuario_id = u.id
-       LEFT JOIN permisos p ON p.id = up.permiso_id
+       LEFT JOIN permisos p          ON p.id = up.permiso_id
+       LEFT JOIN grupo_miembros gm   ON gm.usuario_id = u.id
        WHERE u.id = $1
        GROUP BY u.id`,
       [id],
@@ -158,12 +214,17 @@ export class UsuarioService {
         `SELECT u.id, u.nombre_completo, u.username, u.email,
                 u.last_login, u.creado_en,
                 COALESCE(
-                  json_agg(p.nombre) FILTER (WHERE p.nombre IS NOT NULL),
+                  json_agg(DISTINCT p.nombre) FILTER (WHERE p.nombre IS NOT NULL),
                   '[]'
-                ) AS permisos
+                ) AS permisos,
+                COALESCE(
+                  json_agg(DISTINCT gm.grupo_id::text) FILTER (WHERE gm.grupo_id IS NOT NULL),
+                  '[]'
+                ) AS grupo_ids
          FROM usuarios u
          LEFT JOIN usuario_permisos up ON up.usuario_id = u.id
-         LEFT JOIN permisos p ON p.id = up.permiso_id
+         LEFT JOIN permisos p          ON p.id = up.permiso_id
+         LEFT JOIN grupo_miembros gm   ON gm.usuario_id = u.id
          GROUP BY u.id
          ORDER BY u.creado_en DESC
          LIMIT $1 OFFSET $2`,

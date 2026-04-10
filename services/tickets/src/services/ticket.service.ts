@@ -6,8 +6,8 @@ export interface CreateTicketDTO {
   titulo:       string;
   descripcion?: string | null;
   asignadoId?:  string | null;
-  estadoId:     string;
-  prioridadId:  string;
+  estado:       string;    // nombre del estado (ej: 'pendiente')
+  prioridad:    string;    // nombre de la prioridad (ej: 'media')
   fechaFinal?:  string | null;
 }
 
@@ -15,7 +15,7 @@ export interface UpdateTicketDTO {
   titulo?:       string;
   descripcion?:  string | null;
   asignadoId?:   string | null;
-  prioridadId?:  string;
+  prioridad?:    string;   // nombre de la prioridad
   fechaFinal?:   string | null;
 }
 
@@ -26,7 +26,6 @@ export interface ListTicketsFilter {
   asignadoId?: string;
   page:        number;
   limit:       number;
-  // ID del usuario que hace la petición (para filtrar por visibilidad)
   userId:      string;
   permisos:    string[];
 }
@@ -59,10 +58,21 @@ const TICKET_JOINS = `
 export class TicketService {
   constructor(private db: Pool) {}
 
+  // ─── Helpers: resolución de catálogos por nombre ──────────────────
+  private async resolverEstadoId(nombre: string): Promise<string> {
+    const r = await this.db.query('SELECT id FROM estados WHERE nombre = $1', [nombre]);
+    if (!r.rows[0]) throw Object.assign(new Error(`Estado inválido: ${nombre}`), { statusCode: 400 });
+    return r.rows[0].id;
+  }
+
+  private async resolverPrioridadId(nombre: string): Promise<string> {
+    const r = await this.db.query('SELECT id FROM prioridades WHERE nombre = $1', [nombre]);
+    if (!r.rows[0]) throw Object.assign(new Error(`Prioridad inválida: ${nombre}`), { statusCode: 400 });
+    return r.rows[0].id;
+  }
+
   // ═══════════════════════════════════════════════════════════════════
   // LISTAR
-  // ticket_state y ticket_view → solo los asignados al usuario
-  // tickets_view              → todos los del grupo
   // ═══════════════════════════════════════════════════════════════════
   async listar(filter: ListTicketsFilter) {
     const { page, limit, userId, permisos } = filter;
@@ -79,7 +89,6 @@ export class TicketService {
       values.push(filter.grupoId);
     }
     if (!canViewAll) {
-      // Solo ve sus propios tickets
       conditions.push(`t.asignado_id = $${idx++}`);
       values.push(userId);
     }
@@ -140,14 +149,13 @@ export class TicketService {
   // CREAR
   // ═══════════════════════════════════════════════════════════════════
   async crear(dto: CreateTicketDTO, autorId: string) {
-    // Verificar que el grupo existe
     const grupo = await this.db.query('SELECT id FROM grupos WHERE id = $1', [dto.grupoId]);
     if (!grupo.rows[0]) {
       throw Object.assign(new Error('Grupo no encontrado'), { statusCode: 404 });
     }
 
-    // Verificar que estado y prioridad existen
-    await this.verificarCatalogos(dto.estadoId, dto.prioridadId);
+    const estadoId    = await this.resolverEstadoId(dto.estado);
+    const prioridadId = await this.resolverPrioridadId(dto.prioridad);
 
     const result = await this.db.query(
       `INSERT INTO tickets
@@ -160,13 +168,12 @@ export class TicketService {
         dto.descripcion ?? null,
         autorId,
         dto.asignadoId ?? null,
-        dto.estadoId,
-        dto.prioridadId,
+        estadoId,
+        prioridadId,
         dto.fechaFinal ?? null,
       ],
     );
 
-    // Registrar en historial
     await this.agregarHistorial(
       result.rows[0].id, autorId, 'created', undefined, undefined, 'Ticket creado',
     );
@@ -175,7 +182,7 @@ export class TicketService {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // ACTUALIZAR (campos generales — requiere ticket_edit)
+  // ACTUALIZAR
   // ═══════════════════════════════════════════════════════════════════
   async actualizar(id: string, dto: UpdateTicketDTO, userId: string) {
     const ticket = await this.obtenerPorId(id);
@@ -199,11 +206,11 @@ export class TicketService {
       values.push(dto.asignadoId);
       await this.agregarHistorial(id, userId, 'assigned', ticket.asignadoId ?? '—', dto.asignadoId ?? '—');
     }
-    if (dto.prioridadId !== undefined) {
-      await this.verificarCatalogos(undefined, dto.prioridadId);
+    if (dto.prioridad !== undefined) {
+      const prioridadId = await this.resolverPrioridadId(dto.prioridad);
       fields.push(`prioridad_id = $${idx++}`);
-      values.push(dto.prioridadId);
-      await this.agregarHistorial(id, userId, 'priority_changed', ticket.prioridad, dto.prioridadId);
+      values.push(prioridadId);
+      await this.agregarHistorial(id, userId, 'priority_changed', ticket.prioridad, dto.prioridad);
     }
     if (dto.fechaFinal !== undefined) {
       fields.push(`fecha_final = $${idx++}`);
@@ -228,10 +235,9 @@ export class TicketService {
   // CAMBIAR ESTADO (requiere ticket_state)
   // Regla: solo si el ticket está asignado al usuario
   // ═══════════════════════════════════════════════════════════════════
-  async cambiarEstado(id: string, estadoId: string, userId: string) {
+  async cambiarEstado(id: string, estadoNombre: string, userId: string) {
     const ticket = await this.obtenerPorId(id);
 
-    // Verificar que el ticket está asignado al usuario
     if (ticket.asignadoId !== userId) {
       throw Object.assign(
         new Error('Solo puedes cambiar el estado de tickets asignados a ti'),
@@ -239,21 +245,14 @@ export class TicketService {
       );
     }
 
-    // Verificar que el estado existe
-    const estado = await this.db.query(
-      'SELECT id, nombre FROM estados WHERE id = $1',
-      [estadoId],
-    );
-    if (!estado.rows[0]) {
-      throw Object.assign(new Error('Estado no encontrado'), { statusCode: 404 });
-    }
+    const estadoId = await this.resolverEstadoId(estadoNombre);
 
     await this.db.query(
       'UPDATE tickets SET estado_id = $1 WHERE id = $2',
       [estadoId, id],
     );
 
-    await this.agregarHistorial(id, userId, 'status_changed', ticket.estado, estado.rows[0].nombre);
+    await this.agregarHistorial(id, userId, 'status_changed', ticket.estado, estadoNombre);
 
     return this.obtenerPorId(id);
   }
@@ -261,7 +260,7 @@ export class TicketService {
   // ═══════════════════════════════════════════════════════════════════
   // ELIMINAR
   // ═══════════════════════════════════════════════════════════════════
-  async eliminar(id: string, userId: string) {
+  async eliminar(id: string, _userId: string) {
     const result = await this.db.query(
       'DELETE FROM tickets WHERE id = $1 RETURNING id',
       [id],
@@ -280,12 +279,10 @@ export class TicketService {
     const userFilter  = canViewAll ? '' : 'AND t.asignado_id = $2';
 
     const [totalRow, porEstado, porPrioridad, kanbanTickets, estados] = await Promise.all([
-      // Total
       this.db.query(
         `SELECT COUNT(*) FROM tickets t WHERE t.grupo_id = $1 ${userFilter}`,
         queryParams,
       ),
-      // Por estado
       this.db.query(
         `SELECT e.nombre AS estado, e.color, COUNT(t.id)::int AS total
          FROM estados e
@@ -294,7 +291,6 @@ export class TicketService {
          ORDER BY e.nombre`,
         queryParams,
       ),
-      // Por prioridad
       this.db.query(
         `SELECT p.nombre AS prioridad, p.orden, COUNT(t.id)::int AS total
          FROM prioridades p
@@ -303,18 +299,15 @@ export class TicketService {
          ORDER BY p.orden`,
         queryParams,
       ),
-      // Tickets para kanban
       this.db.query(
         `SELECT ${TICKET_SELECT} FROM tickets t ${TICKET_JOINS}
          WHERE t.grupo_id = $1 ${userFilter}
          ORDER BY p.orden DESC, t.creado_en DESC`,
         queryParams,
       ),
-      // Todos los estados para columnas kanban
       this.db.query('SELECT id, nombre, color FROM estados ORDER BY nombre'),
     ]);
 
-    // Agrupar tickets por estado para el kanban
     const kanban = estados.rows.map((e: any) => ({
       estadoId:     e.id,
       estadoNombre: e.nombre,
@@ -334,7 +327,7 @@ export class TicketService {
   // COMENTARIOS
   // ═══════════════════════════════════════════════════════════════════
   async listarComentarios(ticketId: string) {
-    await this.obtenerPorId(ticketId); // verifica que existe
+    await this.obtenerPorId(ticketId);
     const result = await this.db.query(
       `SELECT c.id, c.ticket_id AS "ticketId", c.autor_id AS "autorId",
               u.nombre_completo AS "autorNombre", c.contenido,
@@ -380,20 +373,7 @@ export class TicketService {
     return result.rows;
   }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // HELPERS PRIVADOS
-  // ═══════════════════════════════════════════════════════════════════
-  private async verificarCatalogos(estadoId?: string, prioridadId?: string) {
-    if (estadoId) {
-      const e = await this.db.query('SELECT id FROM estados WHERE id = $1', [estadoId]);
-      if (!e.rows[0]) throw Object.assign(new Error('Estado inválido'), { statusCode: 400 });
-    }
-    if (prioridadId) {
-      const p = await this.db.query('SELECT id FROM prioridades WHERE id = $1', [prioridadId]);
-      if (!p.rows[0]) throw Object.assign(new Error('Prioridad inválida'), { statusCode: 400 });
-    }
-  }
-
+  // ─── Helpers privados ─────────────────────────────────────────────
   private async agregarHistorial(
     ticketId: string, userId: string, accion: string,
     valorAnterior?: string, valorNuevo?: string, nota?: string,
@@ -406,4 +386,3 @@ export class TicketService {
     );
   }
 }
-

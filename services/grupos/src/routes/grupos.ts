@@ -5,6 +5,7 @@ import {
   listGruposSchema, getGrupoSchema, createGrupoSchema, updateGrupoSchema,
   deleteGrupoSchema, listMiembrosSchema, addMiembroSchema, removeMiembroSchema,
   getPermisosContextualesSchema, updatePermisosContextualesSchema, misGruposSchema,
+  getPermisosDefaultSchema, updatePermisosDefaultSchema,
 } from '../schemas/grupo.schema.js';
 
 const gruposRoutes: FastifyPluginAsync = async (fastify) => {
@@ -181,6 +182,32 @@ const gruposRoutes: FastifyPluginAsync = async (fastify) => {
         req.params.id, req.params.uid, req.body.permisos,
       );
       return reply.send(ok(200, 'SxGR', result));
+    },
+  );
+
+  // ═══════════════════════════════════════════════════════════════════
+  // GET /grupos/:id/permisos-default
+  // ═══════════════════════════════════════════════════════════════════
+  fastify.get<{ Params: { id: string } }>(
+    '/:id/permisos-default', { schema: getPermisosDefaultSchema },
+    async (req, reply) => {
+      const permisos = await svc.getPermisosDefault(req.params.id);
+      return reply.send(ok(200, 'SxGR', { grupoId: req.params.id, permisos }));
+    },
+  );
+
+  // ═══════════════════════════════════════════════════════════════════
+  // PUT /grupos/:id/permisos-default
+  // ═══════════════════════════════════════════════════════════════════
+  fastify.put<{ Params: { id: string }; Body: { permisos: string[] } }>(
+    '/:id/permisos-default', { schema: updatePermisosDefaultSchema },
+    async (req: any, reply) => {
+      const permisos_req = getPermisos(req);
+      if (!permisos_req.includes('groups_manage') && !permisos_req.includes('group_edit') && !permisos_req.includes('groups_edit')) {
+        return reply.code(403).send(fail(403, 'SxGR', 'Se requiere permiso para editar permisos del grupo', 'Forbidden'));
+      }
+      const permisos = await svc.updatePermisosDefault(req.params.id, req.body.permisos);
+      return reply.send(ok(200, 'SxGR', { grupoId: req.params.id, permisos, message: 'Permisos base actualizados' }));
     },
   );
 };
