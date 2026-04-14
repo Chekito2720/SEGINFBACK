@@ -7,9 +7,10 @@ import helmet               from '@fastify/helmet';
 import cookie               from '@fastify/cookie';
 import rateLimit            from '@fastify/rate-limit';
 import proxy                from '@fastify/http-proxy';
-import fp                   from 'fastify-plugin';
 
 import permissionChecker    from './plugins/permissionChecker.js';
+import dbPlugin             from './plugins/db.js';
+import auditLogger          from './plugins/auditLogger.js';
 import authRoutes           from './routes/auth.js';
 import { ok, fail }         from './helpers/response.js';
 
@@ -54,6 +55,12 @@ async function bootstrap() {
   await server.register(fjwt, {
     secret: process.env.JWT_SECRET ?? 'dev_secret_change_in_production',
   });
+
+  // ── Base de datos (logs/métricas) ─────────────────────────────────────────
+  await server.register(dbPlugin);
+
+  // ── Audit logger (requests, errores y métricas) ────────────────────────────
+  await server.register(auditLogger);
 
   // ── Verificación de permisos (hook global) ─────────────────────────────────
   // Valida JWT desde cookie + verifica permiso en el mapa antes de proxy
@@ -111,6 +118,28 @@ async function bootstrap() {
         'x-user-email':    req.headers['x-user-email']     ?? '',
       }),
     },
+  });
+
+  // ── Métricas por endpoint ──────────────────────────────────────────────────
+  server.get('/metrics', async (_req, reply) => {
+    const { rows } = await server.db.query(
+      `SELECT endpoint, method, request_count, avg_ms, last_updated
+       FROM endpoint_metrics
+       ORDER BY request_count DESC`,
+    );
+    return reply.send(ok(200, 'SxGW', rows));
+  });
+
+  // ── Logs recientes (últimos 100) ───────────────────────────────────────────
+  server.get('/logs', async (_req, reply) => {
+    const { rows } = await server.db.query(
+      `SELECT id, timestamp, method, endpoint, user_id, ip,
+              status_code, response_ms, error_msg, stack_trace
+       FROM request_logs
+       ORDER BY timestamp DESC
+       LIMIT 100`,
+    );
+    return reply.send(ok(200, 'SxGW', rows));
   });
 
   server.get('/health', async () =>
